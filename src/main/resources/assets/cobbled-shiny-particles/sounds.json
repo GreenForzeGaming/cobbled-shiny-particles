@@ -1,0 +1,8 @@
+{
+    "shiny": {
+      "subtitle": "subtitles.cobbled-shiny-particles.shiny",
+      "sounds": [
+        "cobbled-shiny-particles:custom/shiny"
+       ]
+    }
+}

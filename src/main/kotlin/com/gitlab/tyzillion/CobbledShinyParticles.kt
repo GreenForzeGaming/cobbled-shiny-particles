@@ -8,7 +8,7 @@ import net.minecraft.entity.Entity
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.network.ServerPlayerEntity
 import net.minecraft.sound.SoundCategory
-import net.minecraft.sound.SoundEvents
+import net.minecraft.sound.SoundEvent
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
 
@@ -23,15 +23,6 @@ object CobbledShinyParticles : ModInitializer {
 
 	override fun onInitialize() {
 		logger.info("Initializing Cobbled Shiny Particles")
-
-		// Register a battle started event
-		CobblemonEvents.BATTLE_STARTED_POST.subscribe {
-			logger.info("Battle started")
-			shinyPokemonMap.keys.forEach { shinyEntity ->
-				//I just set the flag to false here so that the effect will play again when the battle starts cuz I couldn't figure out how to make it grab battling entities.
-				shinyPokemonMap[shinyEntity] = false
-			}
-		}
 
 		// Register a Pokémon entity load event
 		CobblemonEvents.POKEMON_ENTITY_LOAD.subscribe() { pokemonEntity ->
@@ -137,13 +128,11 @@ object CobbledShinyParticles : ModInitializer {
 			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_stars_wailord")
 			else -> Identifier("cobblemon:shiny_stars_large")
 		}
-
+		// Define the sound to play
+		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny")
+		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
 		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		player.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, SoundCategory.AMBIENT, 3.0f, 3.0f)
-		player.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, SoundCategory.AMBIENT, 3.0f, 1.0f)
-		player.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.AMBIENT, 3.0f, 2.0f)
-		player.playSound(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.AMBIENT, 3.0f, 3.0f)
-		player.playSound(SoundEvents.BLOCK_AMETHYST_CLUSTER_STEP, SoundCategory.AMBIENT, 3.0f, 5.0f)
+		player.playSound(soundEvent, SoundCategory.AMBIENT, 2.0f, 1.0f) // volume and pitch can be adjusted
 
 		// Spawn the chosen particle effect at the center of the shiny Pokémon's hitbox for the player
 		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
