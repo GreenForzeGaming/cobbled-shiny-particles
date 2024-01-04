@@ -22,7 +22,7 @@ object CobbledShinyParticles : ModInitializer {
 
 
 	override fun onInitialize() {
-		logger.info("Initializing Cobbled Shiny Particles")
+		logger.info("Initializing Cobbled Shiny Particles on $server")
 
 		// Register a Pokémon entity load event
 		CobblemonEvents.POKEMON_ENTITY_LOAD.subscribe() { pokemonEntity ->
@@ -67,7 +67,7 @@ object CobbledShinyParticles : ModInitializer {
 						if (player.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
 							// Play sound and spawn particles at the current location of the shiny Pokémon for the player
 							playStarEffectForPlayer(player, shinyEntity)
-							playSparkleEffectForPlayer(player, shinyEntity)
+							playSparkleEffectForPlayer(shinyEntity)
 							// Update the flag to indicate the effect has been played
 							shinyPokemonMap[shinyEntity] = true
 							break // No need to check other players once the effect is played
@@ -76,13 +76,13 @@ object CobbledShinyParticles : ModInitializer {
 				}
 
 				if (tickCounter >= particleTick) {
-					shinyPokemonMap.keys.forEach { shinyEntity ->
+					shinyPokemonMap.keys.forEach { _ ->
 						// Check if the effect has been played
 						if (shinyPokemonMap[shinyEntity] == true) {
 							// Iterate through all players
 							for (player in players) {
 								if (player.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
-									playSparkleAmbientForPlayer(player, shinyEntity)
+									playSparkleAmbientForPlayer(shinyEntity)
 									if (player.squaredDistanceTo(shinyEntity.pos) > maxDistance * maxDistance) {
 										break
 									}
@@ -139,7 +139,7 @@ object CobbledShinyParticles : ModInitializer {
 		spawnSnowstormParticlePacket.sendToAllPlayers()
 	}
 
-	private fun playSparkleEffectForPlayer(player: ServerPlayerEntity, shinyEntity: Entity) {
+	private fun playSparkleEffectForPlayer(shinyEntity: Entity) {
 		// Calculate the center of the shiny Pokémon's hitbox
 		val hitboxCenter = shinyEntity.boundingBox.center
 
@@ -164,7 +164,7 @@ object CobbledShinyParticles : ModInitializer {
 		spawnSnowstormParticlePacket.sendToAllPlayers()
 	}
 
-	private fun playSparkleAmbientForPlayer(player: ServerPlayerEntity, shinyEntity: Entity) {
+	private fun playSparkleAmbientForPlayer(shinyEntity: Entity) {
 		// Calculate the center of the shiny Pokémon's hitbox
 		val hitboxCenter = shinyEntity.boundingBox.center
 
