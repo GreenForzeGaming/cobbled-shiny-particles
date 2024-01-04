@@ -22,10 +22,10 @@ object CobbledShinyParticles : ModInitializer {
 
 
 	override fun onInitialize() {
-		logger.info("Initializing Cobbled Shiny Particles on $server")
+		logger.info("Initializing Cobbled Shiny Particles")
 
 		// Register a Pokémon entity load event
-		CobblemonEvents.POKEMON_ENTITY_LOAD.subscribe() { pokemonEntity ->
+		CobblemonEvents.POKEMON_ENTITY_LOAD.subscribe { pokemonEntity ->
 			if (pokemonEntity.pokemonEntity.pokemon.shiny) {
 				// Add the shiny Pokémon entity to the map with a flag indicating the effect has not been played
 				shinyPokemonMap[pokemonEntity.pokemonEntity] = false
@@ -33,7 +33,7 @@ object CobbledShinyParticles : ModInitializer {
 		}
 
 		// Register a Pokémon entity sent out event
-		CobblemonEvents.POKEMON_SENT_POST.subscribe() { pokemonEntity ->
+		CobblemonEvents.POKEMON_SENT_POST.subscribe { pokemonEntity ->
 			if (pokemonEntity.pokemon.shiny) {
 				// Add the shiny Pokémon entity to the map with a flag indicating the effect has not been played
 				shinyPokemonMap[pokemonEntity.pokemonEntity] = false
@@ -41,7 +41,7 @@ object CobbledShinyParticles : ModInitializer {
 		}
 
 		// Register a Pokémon entity spawn event
-		CobblemonEvents.POKEMON_ENTITY_SPAWN.subscribe() { pokemonEntity ->
+		CobblemonEvents.POKEMON_ENTITY_SPAWN.subscribe { pokemonEntity ->
 			if (pokemonEntity.entity.pokemon.shiny) {
 				// Add the shiny Pokémon entity to the map with a flag indicating the effect has not been played
 				shinyPokemonMap[pokemonEntity.entity] = false
@@ -76,7 +76,7 @@ object CobbledShinyParticles : ModInitializer {
 				}
 
 				if (tickCounter >= particleTick) {
-					shinyPokemonMap.keys.forEach { _ ->
+					shinyPokemonMap.keys.forEach { shinyEntity ->
 						// Check if the effect has been played
 						if (shinyPokemonMap[shinyEntity] == true) {
 							// Iterate through all players
