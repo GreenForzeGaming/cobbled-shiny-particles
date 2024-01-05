@@ -110,82 +110,47 @@ object CobbledShinyParticles : ModInitializer {
 	}
 
 	private fun playStarEffectForPlayer(player: ServerPlayerEntity, shinyEntity: Entity) {
-		// Calculate the center of the shiny Pokémon's hitbox
-		val hitboxCenter = shinyEntity.boundingBox.center
-
-		val hitbox = shinyEntity.boundingBox
-		val hitboxVolume = (hitbox.maxX - hitbox.minX) * (hitbox.maxY - hitbox.minY) * (hitbox.maxZ - hitbox.minZ)
-
-		// Define thresholds for different hitbox sizes (these values are examples)
-		val smallVolumeThreshold = 1.0
-		val mediumVolumeThreshold = 2.0
-
-		// Determine which particle effect to play based on the hitbox size
-		val particleIdentifier = when {
-			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_stars_small")
-			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_stars_medium")
-			shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_stars_wailord")
-			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_stars_wailord")
-			else -> Identifier("cobblemon:shiny_stars_large")
-		}
+		hitboxDetector(shinyEntity, "stars", false)
 		// Define the sound to play
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
 		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		player.playSound(soundEvent, SoundCategory.AMBIENT, 2.0f, 1.0f) // volume and pitch can be adjusted
-
-		// Spawn the chosen particle effect at the center of the shiny Pokémon's hitbox for the player
-		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-		spawnSnowstormParticlePacket.sendToAllPlayers()
+		player.playSound(soundEvent, SoundCategory.AMBIENT, 2.0f, 1.0f)
 	}
 
 	private fun playSparkleEffectForPlayer(shinyEntity: Entity) {
-		// Calculate the center of the shiny Pokémon's hitbox
-		val hitboxCenter = shinyEntity.boundingBox.center
-
-		val hitbox = shinyEntity.boundingBox
-		val hitboxVolume = (hitbox.maxX - hitbox.minX) * (hitbox.maxY - hitbox.minY) * (hitbox.maxZ - hitbox.minZ)
-
-		// Define thresholds for different hitbox sizes (these values are examples)
-		val smallVolumeThreshold = 1.0
-		val mediumVolumeThreshold = 2.0
-
-		// Determine which particle effect to play based on the hitbox size
-		val particleIdentifier = when {
-			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_sparkles_small")
-			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_sparkles_medium")
-			shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_sparkles_wailord")
-			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_sparkles_wailord")
-			else -> Identifier("cobblemon:shiny_sparkles_large")
-		}
-
-		// Spawn the chosen particle effect at the center of the shiny Pokémon's hitbox for the player
-		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-		spawnSnowstormParticlePacket.sendToAllPlayers()
+		hitboxDetector(shinyEntity, "sparkles", false)
 	}
 
 	private fun playSparkleAmbientForPlayer(shinyEntity: Entity) {
-		// Calculate the center of the shiny Pokémon's hitbox
-		val hitboxCenter = shinyEntity.boundingBox.center
+		hitboxDetector(shinyEntity, "sparkles", true)
+	}
 
+	private fun hitboxDetector(shinyEntity: Entity, particle: String, ambient: Boolean ) {
+		val hitboxCenter = shinyEntity.boundingBox.center
 		val hitbox = shinyEntity.boundingBox
 		val hitboxVolume = (hitbox.maxX - hitbox.minX) * (hitbox.maxY - hitbox.minY) * (hitbox.maxZ - hitbox.minZ)
-
-		// Define thresholds for different hitbox sizes (these values are examples)
 		val smallVolumeThreshold = 1.0
 		val mediumVolumeThreshold = 2.0
-
-		// Determine which particle effect to play based on the hitbox size
-		val particleIdentifier = when {
-			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_sparkles_ambient_small")
-			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_sparkles_ambient_medium")
-			shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_sparkles_ambient_wailord")
-			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_sparkles_ambient_wailord")
-			else -> Identifier("cobblemon:shiny_sparkles_ambient_large")
+		if (ambient) {
+			val particleIdentifier = when {
+				hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_ambient_small")
+				hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_ambient_medium")
+				shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_ambient_wailord")
+				shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_ambient_wailord")
+				else -> Identifier("cobblemon:shiny_${particle}_large")
+			}
+			val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
+			spawnSnowstormParticlePacket.sendToAllPlayers()
+		} else {val particleIdentifier = when {
+			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_small")
+			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_medium")
+			shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_wailord")
+			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_wailord")
+			else -> Identifier("cobblemon:shiny_${particle}_large")
+			}
+			val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
+			spawnSnowstormParticlePacket.sendToAllPlayers()
 		}
-
-		// Spawn the chosen particle effect at the center of the shiny Pokémon's hitbox for the player
-		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-		spawnSnowstormParticlePacket.sendToAllPlayers()
 	}
 }
