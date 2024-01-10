@@ -1,13 +1,13 @@
 package com.gitlab.tyzillion
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents
+import com.cobblemon.mod.common.api.events.battles.BattleStartedPostEvent
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormParticlePacket
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.entity.Entity
 import net.minecraft.server.MinecraftServer
-import net.minecraft.server.network.ServerPlayerEntity
-import net.minecraft.sound.SoundCategory
 import net.minecraft.sound.SoundEvent
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
@@ -17,12 +17,21 @@ object CobbledShinyParticles : ModInitializer {
 	lateinit var server: MinecraftServer
 
 	// A map to keep track of all shiny Pokémon entities and whether the effect has been played
-	private val shinyPokemonMap = mutableMapOf<Entity, Boolean>()
+	private val shinyPokemonMap = mutableMapOf<PokemonEntity, Boolean>()
+	private val shinedInBattle = mutableMapOf<PokemonEntity, Boolean>()
 	private var tickCounter = 0
-
+	const val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
 
 	override fun onInitialize() {
 		logger.info("Initializing Cobbled Shiny Particles")
+
+		CobblemonEvents.BATTLE_STARTED_POST.subscribe { event: BattleStartedPostEvent ->
+			shinyPokemonMap.keys.forEach { shinyEntity ->
+				if (shinyEntity.isBattling && shinedInBattle[shinyEntity] == false) {
+					shinyPokemonMap[shinyEntity] = false
+				}
+			}
+		}
 
 		// Register a Pokémon entity load event
 		CobblemonEvents.POKEMON_ENTITY_LOAD.subscribe { pokemonEntity ->
@@ -50,107 +59,107 @@ object CobbledShinyParticles : ModInitializer {
 
 		// Register a server tick event to check player distances
 		ServerTickEvents.END_SERVER_TICK.register { server ->
-			val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
 			val players = server.playerManager.playerList
 			val particleTick = 20
-			// Increment the tick counter
 			tickCounter++
 
-			// Iterate through all shiny Pokémon entities
-			shinyPokemonMap.keys.forEach { shinyEntity ->
-
-				// Check if the effect has not been played yet
-				if (shinyPokemonMap[shinyEntity] == false) {
-					// Iterate through all players
-					for (player in players) {
-						// Check if the player is within the maximum distance
-						if (player.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
-							// Play sound and spawn particles at the current location of the shiny Pokémon for the player
-							playStarEffectForPlayer(player, shinyEntity)
-							playSparkleEffectForPlayer(shinyEntity)
-							// Update the flag to indicate the effect has been played
-							shinyPokemonMap[shinyEntity] = true
-							break // No need to check other players once the effect is played
+			if (tickCounter >= particleTick) {
+				tickCounter = 0
+				shinyPokemonMap.forEach { (shinyEntity) ->
+					if (shinyEntity.isAlive) {
+						val isWithinRangeOfAnyPlayer = players.any { player ->
+							player.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance
 						}
-					}
-				}
-
-				if (tickCounter >= particleTick) {
-					shinyPokemonMap.keys.forEach { shinyEntity ->
-						// Check if the effect has been played
-						if (shinyPokemonMap[shinyEntity] == true) {
-							// Iterate through all players
-							for (player in players) {
-								if (player.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
-									playSparkleAmbientForPlayer(shinyEntity)
-									if (player.squaredDistanceTo(shinyEntity.pos) > maxDistance * maxDistance) {
-										break
-									}
-								}
-							}
-						}
-					}
-					tickCounter = 0
-				}
-
-				if (shinyPokemonMap[shinyEntity] == true) {
-					// Iterate through all players
-					for (player in players) {
-						if (player.squaredDistanceTo(shinyEntity.pos) > maxDistance * maxDistance) {
+						if (!isWithinRangeOfAnyPlayer) {
 							shinyPokemonMap[shinyEntity] = false
-							break
+						} else {
+							playSparkleAmbientForPlayer(shinyEntity)
+							shinyPokemonMap[shinyEntity] = true
+						}
+					}
+				}
+			} else {
+				shinyPokemonMap.keys.filter { it.isAlive }.forEach { shinyEntity ->
+					val nearestPlayer = players.minByOrNull { player ->
+						player.squaredDistanceTo(shinyEntity.pos)
+					}
+					val entityCheck = shinyPokemonMap[shinyEntity]?.not() == true
+
+					if (nearestPlayer != null && nearestPlayer.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
+						if (shinyEntity.isBattling && entityCheck) {
+							playStarEffectForPlayer(shinyEntity)
+							playWildSparkleEffectForPlayer(shinyEntity)
+							shinySoundEffectForPlayer(shinyEntity)
+							shinedInBattle[shinyEntity] = true
+							shinyPokemonMap[shinyEntity] = true
+						} else if (shinyEntity.ownerUuid != null && entityCheck) {
+							playStarEffectForPlayer(shinyEntity)
+							playWildSparkleEffectForPlayer(shinyEntity)
+							shinySoundEffectForPlayer(shinyEntity)
+							shinedInBattle[shinyEntity] = false
+							shinyPokemonMap[shinyEntity] = true
+						} else if (entityCheck){
+							playWildStarEffectForPlayer(shinyEntity)
+							playWildSparkleEffectForPlayer(shinyEntity)
+							wildShinySoundEffectForPlayer(shinyEntity)
+							shinedInBattle[shinyEntity] = false
+							shinyPokemonMap[shinyEntity] = true
 						}
 					}
 				}
 			}
-
-			// Remove entries for shiny Pokémon that despawned
+			// Clean up the map for despawned entities
 			shinyPokemonMap.keys.removeAll { !it.isAlive }
 		}
 	}
 
-	private fun playStarEffectForPlayer(player: ServerPlayerEntity, shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "stars", false)
+	private fun wildShinySoundEffectForPlayer(pokemonEntity: PokemonEntity) {
 		// Define the sound to play
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
 		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		player.playSound(soundEvent, SoundCategory.AMBIENT, 2.0f, 1.0f)
+		pokemonEntity.playSound(soundEvent, 2f, 1.0f)
 	}
 
-	private fun playSparkleEffectForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "sparkles", false)
+
+	private fun shinySoundEffectForPlayer(pokemonEntity: PokemonEntity) {
+		// Define the sound to play
+		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny_owned")
+		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
+		// Play a sound at the center of the shiny Pokémon's hitbox for the player
+		pokemonEntity.playSound(soundEvent, 2f, 1.0f)
+	}
+
+	private fun playWildStarEffectForPlayer(shinyEntity: Entity) {
+		hitboxDetector(shinyEntity, "wild_stars")
+	}
+
+	private fun playWildSparkleEffectForPlayer(shinyEntity: Entity) {
+		hitboxDetector(shinyEntity, "wild_sparkles")
 	}
 
 	private fun playSparkleAmbientForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "sparkles", true)
+		hitboxDetector(shinyEntity, "sparkles_ambient")
 	}
 
-	private fun hitboxDetector(shinyEntity: Entity, particle: String, ambient: Boolean ) {
+	private fun playStarEffectForPlayer(shinyEntity: Entity) {
+		hitboxDetector(shinyEntity, "stars")
+	}
+
+	private fun hitboxDetector(shinyEntity: Entity, particle: String ) {
 		val hitboxCenter = shinyEntity.boundingBox.center
 		val hitbox = shinyEntity.boundingBox
 		val hitboxVolume = (hitbox.maxX - hitbox.minX) * (hitbox.maxY - hitbox.minY) * (hitbox.maxZ - hitbox.minZ)
 		val smallVolumeThreshold = 1.0
 		val mediumVolumeThreshold = 2.0
-		if (ambient) {
-			val particleIdentifier = when {
-				hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_ambient_small")
-				hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_ambient_medium")
-				shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_ambient_wailord")
-				shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_ambient_wailord")
-				else -> Identifier("cobblemon:shiny_${particle}_large")
-			}
-			val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-			spawnSnowstormParticlePacket.sendToAllPlayers()
-		} else {val particleIdentifier = when {
+		val particleIdentifier = when {
 			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_small")
 			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_medium")
 			shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_wailord")
 			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_wailord")
 			else -> Identifier("cobblemon:shiny_${particle}_large")
-			}
-			val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-			spawnSnowstormParticlePacket.sendToAllPlayers()
 		}
+		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
+		spawnSnowstormParticlePacket.sendToAllPlayers()
 	}
 }

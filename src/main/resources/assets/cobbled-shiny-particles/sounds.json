@@ -1,8 +1,14 @@
 {
-    "shiny": {
-      "subtitle": "subtitles.cobbled-shiny-particles.shiny",
-      "sounds": [
-        "cobbled-shiny-particles:custom/shiny"
-       ]
-    }
+  "shiny": {
+    "subtitle": "subtitles.cobbled-shiny-particles.shiny",
+    "sounds": [
+      "cobbled-shiny-particles:custom/shiny"
+     ]
+  },
+  "shiny_owned": {
+    "subtitle": "subtitles.cobbled-shiny-particles.shiny_owned",
+    "sounds": [
+      "cobbled-shiny-particles:custom/shiny_battle"
+    ]
+  }
 }
