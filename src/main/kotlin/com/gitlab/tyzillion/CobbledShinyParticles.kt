@@ -87,14 +87,14 @@ object CobbledShinyParticles : ModInitializer {
 
 					if (nearestPlayer != null && nearestPlayer.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
 						if (shinyEntity.isBattling && entityCheck) {
-							playStarEffectForPlayer(shinyEntity)
-							playWildSparkleEffectForPlayer(shinyEntity)
+							playShineEffectForPlayer(shinyEntity)
+							playSparkleEffectForPlayer(shinyEntity)
 							shinySoundEffectForPlayer(shinyEntity)
 							shinedInBattle[shinyEntity] = true
 							shinyPokemonMap[shinyEntity] = true
 						} else if (shinyEntity.ownerUuid != null && entityCheck) {
-							playStarEffectForPlayer(shinyEntity)
-							playWildSparkleEffectForPlayer(shinyEntity)
+							playShineEffectForPlayer(shinyEntity)
+							playSparkleEffectForPlayer(shinyEntity)
 							shinySoundEffectForPlayer(shinyEntity)
 							shinedInBattle[shinyEntity] = false
 							shinyPokemonMap[shinyEntity] = true
@@ -118,7 +118,7 @@ object CobbledShinyParticles : ModInitializer {
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
 		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		pokemonEntity.playSound(soundEvent, 2f, 1.0f)
+		pokemonEntity.playSound(soundEvent, 2.4f, 1.0f)
 	}
 
 
@@ -127,7 +127,7 @@ object CobbledShinyParticles : ModInitializer {
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny_owned")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
 		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		pokemonEntity.playSound(soundEvent, 2f, 1.0f)
+		pokemonEntity.playSound(soundEvent, 2.4f, 1.0f)
 	}
 
 	private fun playWildStarEffectForPlayer(shinyEntity: Entity) {
@@ -142,8 +142,12 @@ object CobbledShinyParticles : ModInitializer {
 		hitboxDetector(shinyEntity, "sparkles_ambient")
 	}
 
-	private fun playStarEffectForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "stars")
+	private fun playShineEffectForPlayer(shinyEntity: Entity) {
+		hitboxDetector(shinyEntity, "shine")
+	}
+
+	private fun playSparkleEffectForPlayer(shinyEntity: Entity) {
+		hitboxDetector(shinyEntity, "sparkle")
 	}
 
 	private fun hitboxDetector(shinyEntity: Entity, particle: String ) {
