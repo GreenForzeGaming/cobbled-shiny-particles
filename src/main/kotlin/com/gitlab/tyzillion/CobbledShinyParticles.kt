@@ -5,20 +5,22 @@ import com.cobblemon.mod.common.api.events.battles.BattleStartedPostEvent
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormParticlePacket
 import net.fabricmc.api.ModInitializer
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.entity.Entity
 import net.minecraft.server.MinecraftServer
 import net.minecraft.sound.SoundEvent
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
+import java.util.*
 
 object CobbledShinyParticles : ModInitializer {
     private val logger = LoggerFactory.getLogger("cobbled-shiny-particles")
 	lateinit var server: MinecraftServer
 
 	// A map to keep track of all shiny Pokémon entities and whether the effect has been played
-	private val shinyPokemonMap = mutableMapOf<PokemonEntity, Boolean>()
-	private val shinedInBattle = mutableMapOf<PokemonEntity, Boolean>()
+	private val shinyPokemon = mutableSetOf<UUID>()
+	private val shinedInBattle = mutableSetOf<UUID>()
 	private var tickCounter = 0
 	const val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
 
@@ -26,34 +28,18 @@ object CobbledShinyParticles : ModInitializer {
 		logger.info("Initializing Cobbled Shiny Particles")
 
 		CobblemonEvents.BATTLE_STARTED_POST.subscribe { event: BattleStartedPostEvent ->
-			shinyPokemonMap.keys.forEach { shinyEntity ->
-				if (shinyEntity.isBattling && shinedInBattle[shinyEntity] == false) {
-					shinyPokemonMap[shinyEntity] = false
+			event.battle.activePokemon.forEach { pokemon ->
+				val entity = pokemon.battlePokemon?.entity ?: return@forEach
+				if (entity.isBattling && !this.shinedInBattle.contains(entity.uuid)) {
+					this.shinyPokemon.remove(entity.uuid)
 				}
 			}
 		}
 
-		// Register a Pokémon entity load event
-		CobblemonEvents.POKEMON_ENTITY_LOAD.subscribe { pokemonEntity ->
-			if (pokemonEntity.pokemonEntity.pokemon.shiny) {
-				// Add the shiny Pokémon entity to the map with a flag indicating the effect has not been played
-				shinyPokemonMap[pokemonEntity.pokemonEntity] = false
-			}
-		}
-
-		// Register a Pokémon entity sent out event
-		CobblemonEvents.POKEMON_SENT_POST.subscribe { pokemonEntity ->
-			if (pokemonEntity.pokemon.shiny) {
-				// Add the shiny Pokémon entity to the map with a flag indicating the effect has not been played
-				shinyPokemonMap[pokemonEntity.pokemonEntity] = false
-			}
-		}
-
-		// Register a Pokémon entity spawn event
-		CobblemonEvents.POKEMON_ENTITY_SPAWN.subscribe { pokemonEntity ->
-			if (pokemonEntity.entity.pokemon.shiny) {
-				// Add the shiny Pokémon entity to the map with a flag indicating the effect has not been played
-				shinyPokemonMap[pokemonEntity.entity] = false
+		// Remove entity from shiny set when it is unloaded
+		ServerEntityEvents.ENTITY_UNLOAD.register { entity, world ->
+			if (this.shinyPokemon.contains(entity.uuid)) {
+				this.shinyPokemon.remove(entity.uuid)
 			}
 		}
 
@@ -65,51 +51,57 @@ object CobbledShinyParticles : ModInitializer {
 
 			if (tickCounter >= particleTick) {
 				tickCounter = 0
-				shinyPokemonMap.forEach { (shinyEntity) ->
-					if (shinyEntity.isAlive) {
+				server.worlds.forEach { world ->
+					world.iterateEntities().forEach { entity ->
+						if (entity !is PokemonEntity || !entity.pokemon.shiny) {
+							return@forEach
+						}
 						val isWithinRangeOfAnyPlayer = players.any { player ->
-							player.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance
+							player.squaredDistanceTo(entity.pos) <= maxDistance * maxDistance
 						}
 						if (!isWithinRangeOfAnyPlayer) {
-							shinyPokemonMap[shinyEntity] = false
+							shinyPokemon.remove(entity.uuid)
 						} else {
-							playSparkleAmbientForPlayer(shinyEntity)
-							shinyPokemonMap[shinyEntity] = true
+							playSparkleAmbientForPlayer(entity)
+							shinyPokemon.add(entity.uuid)
 						}
 					}
 				}
 			} else {
-				shinyPokemonMap.keys.filter { it.isAlive }.forEach { shinyEntity ->
-					val nearestPlayer = players.minByOrNull { player ->
-						player.squaredDistanceTo(shinyEntity.pos)
-					}
-					val entityCheck = shinyPokemonMap[shinyEntity]?.not() == true
+				server.worlds.forEach { world ->
+					world.iterateEntities().forEach { entity ->
+						if (entity !is PokemonEntity || !entity.pokemon.shiny) {
+							return@forEach
+						}
+						val nearestPlayer = players.minByOrNull { player ->
+							player.squaredDistanceTo(entity.pos)
+						}
+						val entityCheck = !shinyPokemon.contains(entity.uuid)
 
-					if (nearestPlayer != null && nearestPlayer.squaredDistanceTo(shinyEntity.pos) <= maxDistance * maxDistance) {
-						if (shinyEntity.isBattling && entityCheck) {
-							playShineEffectForPlayer(shinyEntity)
-							playSparkleEffectForPlayer(shinyEntity)
-							shinySoundEffectForPlayer(shinyEntity)
-							shinedInBattle[shinyEntity] = true
-							shinyPokemonMap[shinyEntity] = true
-						} else if (shinyEntity.ownerUuid != null && entityCheck) {
-							playShineEffectForPlayer(shinyEntity)
-							playSparkleEffectForPlayer(shinyEntity)
-							shinySoundEffectForPlayer(shinyEntity)
-							shinedInBattle[shinyEntity] = false
-							shinyPokemonMap[shinyEntity] = true
-						} else if (entityCheck){
-							playWildStarEffectForPlayer(shinyEntity)
-							playWildSparkleEffectForPlayer(shinyEntity)
-							wildShinySoundEffectForPlayer(shinyEntity)
-							shinedInBattle[shinyEntity] = false
-							shinyPokemonMap[shinyEntity] = true
+						if (nearestPlayer != null && nearestPlayer.squaredDistanceTo(entity.pos) <= maxDistance * maxDistance) {
+							if (entity.isBattling && entityCheck) {
+								playShineEffectForPlayer(entity)
+								playSparkleEffectForPlayer(entity)
+								shinySoundEffectForPlayer(entity)
+								shinedInBattle.add(entity.uuid)
+								shinyPokemon.add(entity.uuid)
+							} else if (entity.ownerUuid != null && entityCheck) {
+								playShineEffectForPlayer(entity)
+								playSparkleEffectForPlayer(entity)
+								shinySoundEffectForPlayer(entity)
+								shinedInBattle.remove(entity.uuid)
+								shinyPokemon.add(entity.uuid)
+							} else if (entityCheck) {
+								playWildStarEffectForPlayer(entity)
+								playWildSparkleEffectForPlayer(entity)
+								wildShinySoundEffectForPlayer(entity)
+								shinedInBattle.remove(entity.uuid)
+								shinyPokemon.add(entity.uuid)
+							}
 						}
 					}
 				}
 			}
-			// Clean up the map for despawned entities
-			shinyPokemonMap.keys.removeAll { !it.isAlive }
 		}
 	}
 
@@ -150,20 +142,20 @@ object CobbledShinyParticles : ModInitializer {
 		hitboxDetector(shinyEntity, "sparkle")
 	}
 
-	private fun hitboxDetector(shinyEntity: Entity, particle: String ) {
-		val hitboxCenter = shinyEntity.boundingBox.center
-		val hitbox = shinyEntity.boundingBox
+	private fun hitboxDetector(entity: Entity, particle: String ) {
+		val hitboxCenter = entity.boundingBox.center
+		val hitbox = entity.boundingBox
 		val hitboxVolume = (hitbox.maxX - hitbox.minX) * (hitbox.maxY - hitbox.minY) * (hitbox.maxZ - hitbox.minZ)
 		val smallVolumeThreshold = 1.0
 		val mediumVolumeThreshold = 2.0
 		val particleIdentifier = when {
 			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_small")
 			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_medium")
-			shinyEntity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_wailord")
-			shinyEntity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_wailord")
+			entity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_wailord")
+			entity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_wailord")
 			else -> Identifier("cobblemon:shiny_${particle}_large")
 		}
 		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-		spawnSnowstormParticlePacket.sendToAllPlayers()
+		spawnSnowstormParticlePacket.sendToPlayersAround(entity.x, entity.y, entity.z, 50.0, entity.world.registryKey)
 	}
 }
