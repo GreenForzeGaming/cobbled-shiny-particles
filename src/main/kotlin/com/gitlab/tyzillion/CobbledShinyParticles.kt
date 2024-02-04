@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.api.events.CobblemonEvents
 import com.cobblemon.mod.common.api.events.battles.BattleStartedPostEvent
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
 import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormParticlePacket
+import com.cobblemon.mod.common.util.isLookingAt
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -63,9 +64,10 @@ object CobbledShinyParticles : ModInitializer {
 						val isWithinRangeOfAnyPlayer = players.any { player ->
 							player.squaredDistanceTo(entity.pos) <= maxDistance * maxDistance
 						}
+						val shinyLook = players.find { player -> entity.ownerUuid != null && player.isLookingAt(entity) }
 						if (!isWithinRangeOfAnyPlayer) {
 							shinyPokemon.remove(entity.uuid)
-						} else if (entity.ownerUuid == null){
+						} else if (entity.ownerUuid == null  || shinyLook != null) {
 							playSparkleAmbientForPlayer(entity)
 							shinyPokemon.add(entity.uuid)
 						}
