@@ -1,5 +1,6 @@
 package com.gitlab.tyzillion
 
+import com.cobblemon.mod.common.api.battles.model.actor.ActorType
 import com.cobblemon.mod.common.api.events.CobblemonEvents
 import com.cobblemon.mod.common.api.events.battles.BattleStartedPostEvent
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
@@ -9,6 +10,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.entity.Entity
 import net.minecraft.server.MinecraftServer
+import net.minecraft.sound.SoundCategory
 import net.minecraft.sound.SoundEvent
 import net.minecraft.util.Identifier
 import org.slf4j.LoggerFactory
@@ -20,7 +22,6 @@ object CobbledShinyParticles : ModInitializer {
 
 	// A map to keep track of all shiny Pokémon entities and whether the effect has been played
 	private val shinyPokemon = mutableSetOf<UUID>()
-	private val shinedInBattle = mutableSetOf<UUID>()
 	private var tickCounter = 0
 	const val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
 
@@ -28,10 +29,13 @@ object CobbledShinyParticles : ModInitializer {
 		logger.info("Initializing Cobbled Shiny Particles")
 
 		CobblemonEvents.BATTLE_STARTED_POST.subscribe { event: BattleStartedPostEvent ->
-			event.battle.activePokemon.forEach { pokemon ->
-				val entity = pokemon.battlePokemon?.entity ?: return@forEach
-				if (entity.isBattling && !this.shinedInBattle.contains(entity.uuid)) {
-					this.shinyPokemon.remove(entity.uuid)
+			event.battle.actors.forEach() { actor ->
+				if (actor.type == ActorType.WILD) {
+					actor.pokemonList.forEach { pokemon ->
+						if (pokemon.entity?.let { shinyPokemon.contains(it.uuid) } == true) {
+							this.shinyPokemon.remove(pokemon.entity!!.uuid)
+						}
+					}
 				}
 			}
 		}
@@ -61,7 +65,7 @@ object CobbledShinyParticles : ModInitializer {
 						}
 						if (!isWithinRangeOfAnyPlayer) {
 							shinyPokemon.remove(entity.uuid)
-						} else {
+						} else if (entity.ownerUuid == null){
 							playSparkleAmbientForPlayer(entity)
 							shinyPokemon.add(entity.uuid)
 						}
@@ -83,19 +87,16 @@ object CobbledShinyParticles : ModInitializer {
 								playShineEffectForPlayer(entity)
 								playSparkleEffectForPlayer(entity)
 								shinySoundEffectForPlayer(entity)
-								shinedInBattle.add(entity.uuid)
 								shinyPokemon.add(entity.uuid)
 							} else if (entity.ownerUuid != null && entityCheck) {
 								playShineEffectForPlayer(entity)
 								playSparkleEffectForPlayer(entity)
 								shinySoundEffectForPlayer(entity)
-								shinedInBattle.remove(entity.uuid)
 								shinyPokemon.add(entity.uuid)
 							} else if (entityCheck) {
 								playWildStarEffectForPlayer(entity)
 								playWildSparkleEffectForPlayer(entity)
 								wildShinySoundEffectForPlayer(entity)
-								shinedInBattle.remove(entity.uuid)
 								shinyPokemon.add(entity.uuid)
 							}
 						}
@@ -105,21 +106,16 @@ object CobbledShinyParticles : ModInitializer {
 		}
 	}
 
-	private fun wildShinySoundEffectForPlayer(pokemonEntity: PokemonEntity) {
-		// Define the sound to play
+	private fun wildShinySoundEffectForPlayer(shinyEntity: Entity) {
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
-		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		pokemonEntity.playSound(soundEvent, 2.4f, 1.0f)
+		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 2.5f, 1.0f,)
 	}
 
-
-	private fun shinySoundEffectForPlayer(pokemonEntity: PokemonEntity) {
-		// Define the sound to play
+	private fun shinySoundEffectForPlayer(shinyEntity: Entity) {
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny_owned")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
-		// Play a sound at the center of the shiny Pokémon's hitbox for the player
-		pokemonEntity.playSound(soundEvent, 2.4f, 1.0f)
+		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 2.0f, 1.0f,)
 	}
 
 	private fun playWildStarEffectForPlayer(shinyEntity: Entity) {
