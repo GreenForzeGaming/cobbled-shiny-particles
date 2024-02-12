@@ -23,8 +23,10 @@ object CobbledShinyParticles : ModInitializer {
 
 	// A map to keep track of all shiny Pokémon entities and whether the effect has been played
 	private val shinyPokemon = mutableSetOf<UUID>()
-	private var tickCounter = 0
+	private val shinyAmbientTimer = mutableMapOf<UUID, Long>()
+	private val shinySoundCooldown = mutableMapOf<UUID, Long>()
 	const val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
+	const val soundEffectCooldown = 5000
 
 	override fun onInitialize() {
 		logger.info("Initializing Cobbled Shiny Particles")
@@ -45,62 +47,59 @@ object CobbledShinyParticles : ModInitializer {
 		ServerEntityEvents.ENTITY_UNLOAD.register { entity, world ->
 			if (this.shinyPokemon.contains(entity.uuid)) {
 				this.shinyPokemon.remove(entity.uuid)
+				this.shinyAmbientTimer.remove(entity.uuid)
+				this.shinySoundCooldown.remove(entity.uuid)
 			}
 		}
 
 		// Register a server tick event to check player distances
 		ServerTickEvents.END_SERVER_TICK.register { server ->
 			val players = server.playerManager.playerList
-			val particleTick = 20
-			tickCounter++
+			val particleInterval = 1000
 
-			if (tickCounter >= particleTick) {
-				tickCounter = 0
-				server.worlds.forEach { world ->
-					world.iterateEntities().forEach { entity ->
-						if (entity !is PokemonEntity || !entity.pokemon.shiny) {
-							return@forEach
-						}
-						val isWithinRangeOfAnyPlayer = players.any { player ->
-							player.squaredDistanceTo(entity.pos) <= maxDistance * maxDistance
-						}
-						val shinyLook = players.find { player -> entity.ownerUuid != null && player.isLookingAt(entity) }
-						if (!isWithinRangeOfAnyPlayer) {
-							shinyPokemon.remove(entity.uuid)
-						} else if (entity.ownerUuid == null  || shinyLook != null) {
-							playSparkleAmbientForPlayer(entity)
-							shinyPokemon.add(entity.uuid)
-						}
+			server.worlds.forEach { world ->
+				world.iterateEntities().forEach { entity ->
+					if (entity !is PokemonEntity || !entity.pokemon.shiny) {
+						return@forEach
 					}
-				}
-			} else {
-				server.worlds.forEach { world ->
-					world.iterateEntities().forEach { entity ->
-						if (entity !is PokemonEntity || !entity.pokemon.shiny) {
-							return@forEach
-						}
-						val nearestPlayer = players.minByOrNull { player ->
-							player.squaredDistanceTo(entity.pos)
-						}
-						val entityCheck = !shinyPokemon.contains(entity.uuid)
+					val isWithinRangeOfAnyPlayer = players.any { player ->
+						player.squaredDistanceTo(entity.pos) <= maxDistance * maxDistance
+					}
+					val shinyLook = players.find { player -> entity.ownerUuid != null && player.isLookingAt(entity) }
+					val entityCheck = !shinyPokemon.contains(entity.uuid)
 
-						if (nearestPlayer != null && nearestPlayer.squaredDistanceTo(entity.pos) <= maxDistance * maxDistance) {
-							if (entity.isBattling && entityCheck) {
-								playShineEffectForPlayer(entity)
-								playSparkleEffectForPlayer(entity)
-								shinySoundEffectForPlayer(entity)
+					if (!isWithinRangeOfAnyPlayer) {
+						shinyPokemon.remove(entity.uuid)
+					}
+					else {
+						if (entity.ownerUuid == null  || shinyLook != null) {
+							val startTime = shinyAmbientTimer[entity.uuid]
+							if (startTime == null || System.currentTimeMillis() - startTime >= particleInterval) {
+								playSparkleAmbientForPlayer(entity)
 								shinyPokemon.add(entity.uuid)
-							} else if (entity.ownerUuid != null && entityCheck) {
-								playShineEffectForPlayer(entity)
-								playSparkleEffectForPlayer(entity)
-								shinySoundEffectForPlayer(entity)
-								shinyPokemon.add(entity.uuid)
-							} else if (entityCheck) {
-								playWildStarEffectForPlayer(entity)
-								playWildSparkleEffectForPlayer(entity)
-								wildShinySoundEffectForPlayer(entity)
-								shinyPokemon.add(entity.uuid)
+								shinyAmbientTimer[entity.uuid] = System.currentTimeMillis()
 							}
+						}
+						if (entity.isBattling && entityCheck) {
+							playShineEffectForPlayer(entity)
+							playSparkleEffectForPlayer(entity)
+							shinySoundEffectForPlayer(entity)
+							shinyPokemon.add(entity.uuid)
+							shinyAmbientTimer.remove(entity.uuid)
+						} else if (entityCheck && entity.ownerUuid != null && entity.tethering?.tetheringId == null) {
+							playShineEffectForPlayer(entity)
+							playSparkleEffectForPlayer(entity)
+							val lastSoundEffectTime = shinySoundCooldown[entity.ownerUuid]
+							if (lastSoundEffectTime == null || System.currentTimeMillis() - lastSoundEffectTime >= soundEffectCooldown) {
+								shinySoundEffectForPlayer(entity)
+								shinySoundCooldown[entity.ownerUuid!!] = System.currentTimeMillis()
+							}
+							shinyPokemon.add(entity.uuid)
+						} else if (entityCheck && entity.tethering?.tetheringId == null) {
+							playWildStarEffectForPlayer(entity)
+							playWildSparkleEffectForPlayer(entity)
+							wildShinySoundEffectForPlayer(entity)
+							shinyPokemon.add(entity.uuid)
 						}
 					}
 				}
@@ -111,13 +110,13 @@ object CobbledShinyParticles : ModInitializer {
 	private fun wildShinySoundEffectForPlayer(shinyEntity: Entity) {
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
-		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 2.5f, 1.0f,)
+		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 2.0f, 1.0f,)
 	}
 
 	private fun shinySoundEffectForPlayer(shinyEntity: Entity) {
 		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny_owned")
 		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
-		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 2.0f, 1.0f,)
+		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 1.0f, 1.0f,)
 	}
 
 	private fun playWildStarEffectForPlayer(shinyEntity: Entity) {
