@@ -2,7 +2,7 @@
 	"format_version": "1.10.0",
 	"particle_effect": {
 		"description": {
-			"identifier": "cobblemon:shiny_sparkle_wailord",
+			"identifier": "cobblemon:shiny_sparkle",
 			"basic_render_parameters": {
 				"material": "particles_alpha",
 				"texture": "textures/particles/shiny_sparkle_animated"
@@ -18,15 +18,14 @@
 		},
 		"components": {
 			"minecraft:emitter_rate_instant": {
-				"num_particles": 32
+				"num_particles": 12
 			},
 			"minecraft:emitter_lifetime_once": {
 				"active_time": 1
 			},
-			"minecraft:emitter_shape_box": {
-				"half_dimensions": [1, 1, 1],
-				"surface_only": true,
-				"direction": ["math.random(-9,9)", "math.random(-9,9)", "math.random(-9,9)"]
+			"minecraft:emitter_shape_point": {
+				"offset": [0, "q.entity_height / 2", 0],
+				"direction": ["math.random(-3,3) ", "math.random(0,3)", "math.random(-3,3)"]
 			},
 			"minecraft:particle_lifetime_expression": {
 				"max_lifetime": 2
@@ -34,12 +33,12 @@
 			"minecraft:particle_initial_spin": {
 				"rotation": "math.random(0,359)"
 			},
-			"minecraft:particle_initial_speed": 1,
+			"minecraft:particle_initial_speed": "math.clamp(6 * q.entity_size, 0.5, 24)",
 			"minecraft:particle_motion_dynamic": {
-				"linear_drag_coefficient": "math.random(25,50)"
+				"linear_drag_coefficient": "math.random(3,5)"
 			},
 			"minecraft:particle_appearance_billboard": {
-				"size": ["math.random(0.2,1)*variable.size / 2.5", "math.random(0.2,1)*variable.size / 2.5"],
+				"size": ["math.clamp(math.random(0.2,1) / 2.5 * q.entity_size, 0.5, 10) / 2 *variable.size", "math.clamp(math.random(0.2,1) / 2.5 * q.entity_size, 0.5, 10) / 2 *variable.size"],
 				"facing_camera_mode": "rotate_xyz",
 				"uv": {
 					"texture_width": 32,

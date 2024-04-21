@@ -2,7 +2,7 @@
 	"format_version": "1.10.0",
 	"particle_effect": {
 		"description": {
-			"identifier": "cobblemon:shiny_shine_medium",
+			"identifier": "cobblemon:shine",
 			"basic_render_parameters": {
 				"material": "particles_blend",
 				"texture": "textures/particles/shine"
@@ -13,7 +13,14 @@
 				"type": "linear",
 				"input": "v.particle_age",
 				"horizontal_range": "v.particle_lifetime",
-				"nodes": [0, 3, 4]
+				"nodes": [0, 2, 3]
+			}
+		},
+		"events": {
+			"event_shine_sound": {
+				"sound_effect": {
+					"event_name": "cobbled-shiny-particles:shiny_owned"
+				}
 			}
 		},
 		"components": {
@@ -23,18 +30,23 @@
 			"minecraft:emitter_lifetime_once": {
 				"active_time": 1
 			},
-			"minecraft:emitter_shape_point": {},
+			"minecraft:emitter_lifetime_events": {
+				"creation_event": "event_shine_sound"
+			},
+			"minecraft:emitter_shape_point": {
+				"offset": [0, "q.entity_height / 2", 0]
+			},
 			"minecraft:particle_lifetime_expression": {
 				"max_lifetime": 1
 			},
 			"minecraft:particle_initial_spin": {
 				"rotation": "math.random(0,359)",
-				"rotation_rate": 20
+				"rotation_rate": 15
 			},
 			"minecraft:particle_initial_speed": 0,
 			"minecraft:particle_motion_dynamic": {},
 			"minecraft:particle_appearance_billboard": {
-				"size": ["variable.size", "variable.size"],
+				"size": ["variable.size * q.entity_size", "variable.size * q.entity_size"],
 				"facing_camera_mode": "rotate_xyz",
 				"uv": {
 					"texture_width": 640,
