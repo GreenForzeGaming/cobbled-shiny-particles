@@ -2,10 +2,10 @@
 	"format_version": "1.10.0",
 	"particle_effect": {
 		"description": {
-			"identifier": "cobblemon:shiny_sparkles_ambient_wailord",
+			"identifier": "cobblemon:shiny_sparkles_ambient",
 			"basic_render_parameters": {
 				"material": "particles_alpha",
-				"texture": "textures/particles/shiny_sparkle"
+				"texture": "textures/particles/shiny_sparkle_animated"
 			}
 		},
 		"curves": {
@@ -17,34 +17,41 @@
 			}
 		},
 		"components": {
-			"minecraft:emitter_rate_instant": {
-				"num_particles": 12
+			"minecraft:emitter_rate_steady": {
+				"spawn_rate": "math.clamp(q.entity_size*4,4,18)",
+				"max_particles": 100
 			},
 			"minecraft:emitter_lifetime_once": {
 				"active_time": 1
 			},
-			"minecraft:emitter_shape_box": {
-				"half_dimensions": [4, 4, 4],
+			"minecraft:emitter_shape_sphere": {
+				"offset": [0, "q.entity_height / 2", 0],
+				"radius": "math.clamp(q.entity_radius,1,50)",
 				"direction": ["math.random(-1,1)", "math.random(-1,1)", "math.random(-1,1)"]
 			},
 			"minecraft:particle_lifetime_expression": {
-				"max_lifetime": 2
+				"max_lifetime": 0.9
 			},
 			"minecraft:particle_initial_spin": {
-				"rotation": "math.random(0,359)"
+				"rotation": "math.random_integer(0,3)*90"
 			},
 			"minecraft:particle_initial_speed": 1,
 			"minecraft:particle_motion_dynamic": {
-				"linear_drag_coefficient": "math.random(25,50)"
+				"linear_drag_coefficient": "math.random(4,5)"
 			},
 			"minecraft:particle_appearance_billboard": {
-				"size": ["math.random(0.2,1)*variable.size / 2.5", "math.random(0.2,1)*variable.size / 2.5"],
+				"size": ["math.clamp(v.particle_random_4*0.2,0.2,0.4)", "math.clamp(v.particle_random_4*0.2,0.2,0.4)"],
 				"facing_camera_mode": "rotate_xyz",
 				"uv": {
-					"texture_width": 16,
-					"texture_height": 16,
-					"uv": [0, 0],
-					"uv_size": [16, 16]
+					"texture_width": 128,
+					"texture_height": 8,
+					"flipbook": {
+						"base_UV": [0, 0],
+						"size_UV": [8, 8],
+						"step_UV": [8, 0],
+						"frames_per_second": 18,
+						"max_frame": 15
+					}
 				}
 			}
 		}

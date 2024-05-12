@@ -3,8 +3,9 @@ package com.gitlab.tyzillion
 import com.cobblemon.mod.common.api.battles.model.actor.ActorType
 import com.cobblemon.mod.common.api.events.CobblemonEvents
 import com.cobblemon.mod.common.api.events.battles.BattleStartedPostEvent
+import com.cobblemon.mod.common.api.scheduling.afterOnServer
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity
-import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormParticlePacket
+import com.cobblemon.mod.common.net.messages.client.effect.SpawnSnowstormEntityParticlePacket
 import com.cobblemon.mod.common.util.isLookingAt
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents
@@ -24,9 +25,7 @@ object CobbledShinyParticles : ModInitializer {
 	// A map to keep track of all shiny Pokémon entities and whether the effect has been played
 	private val shinyPokemon = mutableSetOf<UUID>()
 	private val shinyAmbientTimer = mutableMapOf<UUID, Long>()
-	private val shinySoundCooldown = mutableMapOf<UUID, Long>()
 	const val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
-	const val soundEffectCooldown = 5000
 
 	override fun onInitialize() {
 		logger.info("Initializing Cobbled Shiny Particles")
@@ -48,7 +47,6 @@ object CobbledShinyParticles : ModInitializer {
 			if (this.shinyPokemon.contains(entity.uuid)) {
 				this.shinyPokemon.remove(entity.uuid)
 				this.shinyAmbientTimer.remove(entity.uuid)
-				this.shinySoundCooldown.remove(entity.uuid)
 			}
 		}
 
@@ -81,24 +79,30 @@ object CobbledShinyParticles : ModInitializer {
 							}
 						}
 						if (entity.isBattling && entityCheck) {
-							playShineEffectForPlayer(entity)
-							playSparkleEffectForPlayer(entity)
-							shinySoundEffectForPlayer(entity)
+							if (entity.ownerUuid == null){
+								afterOnServer (seconds = 1F) {
+									playShineEffectForPlayer(entity)
+									playSparkleEffectForPlayer(entity)
+								}
+							} else {
+								afterOnServer (seconds = 1.5F) {
+									playShineEffectForPlayer(entity)
+									playSparkleEffectForPlayer(entity)
+								}
+							}
 							shinyPokemon.add(entity.uuid)
 							shinyAmbientTimer.remove(entity.uuid)
 						} else if (entityCheck && entity.ownerUuid != null && entity.tethering?.tetheringId == null) {
-							playShineEffectForPlayer(entity)
-							playSparkleEffectForPlayer(entity)
-							val lastSoundEffectTime = shinySoundCooldown[entity.ownerUuid]
-							if (lastSoundEffectTime == null || System.currentTimeMillis() - lastSoundEffectTime >= soundEffectCooldown) {
-								shinySoundEffectForPlayer(entity)
-								shinySoundCooldown[entity.ownerUuid!!] = System.currentTimeMillis()
+							afterOnServer(seconds = 1F) {
+								playShineEffectForPlayer(entity)
+								playSparkleEffectForPlayer(entity)
 							}
 							shinyPokemon.add(entity.uuid)
 						} else if (entityCheck && entity.tethering?.tetheringId == null) {
-							playWildStarEffectForPlayer(entity)
-							playWildSparkleEffectForPlayer(entity)
-							wildShinySoundEffectForPlayer(entity)
+							afterOnServer(seconds = 1F) {
+								playWildStarEffectForPlayer(entity)
+								wildShinySoundEffectForPlayer(entity)
+							}
 							shinyPokemon.add(entity.uuid)
 						}
 					}
@@ -113,46 +117,24 @@ object CobbledShinyParticles : ModInitializer {
 		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 2.0f, 1.0f,)
 	}
 
-	private fun shinySoundEffectForPlayer(shinyEntity: Entity) {
-		val soundIdentifier = Identifier("cobbled-shiny-particles", "shiny_owned")
-		val soundEvent : SoundEvent = SoundEvent.of(soundIdentifier)
-		shinyEntity.world.playSound(shinyEntity, shinyEntity.blockPos, soundEvent, SoundCategory.NEUTRAL, 1.0f, 1.0f,)
-	}
-
 	private fun playWildStarEffectForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "wild_stars")
-	}
-
-	private fun playWildSparkleEffectForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "wild_sparkles")
+		particleEntityHandler(shinyEntity, Identifier("cobblemon","shiny_wild_stars"))
 	}
 
 	private fun playSparkleAmbientForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "sparkles_ambient")
+		particleEntityHandler(shinyEntity, Identifier("cobblemon","shiny_sparkles_ambient"))
 	}
 
 	private fun playShineEffectForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "shine")
+		particleEntityHandler(shinyEntity, Identifier("cobblemon","shine"), "middle")
 	}
 
 	private fun playSparkleEffectForPlayer(shinyEntity: Entity) {
-		hitboxDetector(shinyEntity, "sparkle")
+		particleEntityHandler(shinyEntity, Identifier("cobblemon","shiny_sparkle"), "middle")
 	}
 
-	private fun hitboxDetector(entity: Entity, particle: String ) {
-		val hitboxCenter = entity.boundingBox.center
-		val hitbox = entity.boundingBox
-		val hitboxVolume = (hitbox.maxX - hitbox.minX) * (hitbox.maxY - hitbox.minY) * (hitbox.maxZ - hitbox.minZ)
-		val smallVolumeThreshold = 1.0
-		val mediumVolumeThreshold = 2.0
-		val particleIdentifier = when {
-			hitboxVolume <= smallVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_small")
-			hitboxVolume <= mediumVolumeThreshold -> Identifier("cobblemon:shiny_${particle}_medium")
-			entity.name.string == "Wailord" -> Identifier("cobblemon:shiny_${particle}_wailord")
-			entity.name.string == "Wishiwashi" -> Identifier("cobblemon:shiny_${particle}_wailord")
-			else -> Identifier("cobblemon:shiny_${particle}_large")
-		}
-		val spawnSnowstormParticlePacket = SpawnSnowstormParticlePacket(particleIdentifier, hitboxCenter)
-		spawnSnowstormParticlePacket.sendToPlayersAround(entity.x, entity.y, entity.z, 50.0, entity.world.registryKey)
+	private fun particleEntityHandler(entity: Entity, particle: Identifier, locator: String = "root") {
+		val spawnSnowstormParticlePacket = SpawnSnowstormEntityParticlePacket(particle, entity.id, locator)
+		spawnSnowstormParticlePacket.sendToPlayersAround(entity.x, entity.y, entity.z, 64.0, entity.world.registryKey)
 	}
 }
