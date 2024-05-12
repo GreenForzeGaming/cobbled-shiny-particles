@@ -93,13 +93,13 @@ object CobbledShinyParticles : ModInitializer {
 							shinyPokemon.add(entity.uuid)
 							shinyAmbientTimer.remove(entity.uuid)
 						} else if (entityCheck && entity.ownerUuid != null && entity.tethering?.tetheringId == null) {
-							afterOnServer(seconds = 1.5F) {
+							afterOnServer(seconds = 1F) {
 								playShineEffectForPlayer(entity)
 								playSparkleEffectForPlayer(entity)
 							}
 							shinyPokemon.add(entity.uuid)
 						} else if (entityCheck && entity.tethering?.tetheringId == null) {
-							afterOnServer(seconds = 1.5F) {
+							afterOnServer(seconds = 1F) {
 								playWildStarEffectForPlayer(entity)
 								wildShinySoundEffectForPlayer(entity)
 							}
@@ -126,11 +126,11 @@ object CobbledShinyParticles : ModInitializer {
 	}
 
 	private fun playShineEffectForPlayer(shinyEntity: Entity) {
-		particleEntityHandler(shinyEntity, Identifier("cobblemon","shine"))
+		particleEntityHandler(shinyEntity, Identifier("cobblemon","shine"), "middle")
 	}
 
 	private fun playSparkleEffectForPlayer(shinyEntity: Entity) {
-		particleEntityHandler(shinyEntity, Identifier("cobblemon","shiny_sparkle"))
+		particleEntityHandler(shinyEntity, Identifier("cobblemon","shiny_sparkle"), "middle")
 	}
 
 	private fun particleEntityHandler(entity: Entity, particle: Identifier, locator: String = "root") {
