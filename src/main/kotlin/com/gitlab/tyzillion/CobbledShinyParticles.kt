@@ -25,7 +25,7 @@ object CobbledShinyParticles : ModInitializer {
 	// A map to keep track of all shiny Pokémon entities and whether the effect has been played
 	private val shinyPokemon = mutableSetOf<UUID>()
 	private val shinyAmbientTimer = mutableMapOf<UUID, Long>()
-	const val maxDistance = 26.0 // Square of the maximum distance for the sound and particles to be played
+	const val maxDistance = 100.0 // Square of the maximum distance for the sound and particles to be played
 
 	override fun onInitialize() {
 		logger.info("Initializing Cobbled Shiny Particles")
